@@ -22,7 +22,7 @@ from networks import plot_network_clusters
 
 def node2vec_kmeans(
         g_original: object,
-        dimensions: int = 64,
+        dimensions: int = 32,
         walk_length: int = 30,
         num_walks: int = 200,
         workers: int = 4,
@@ -101,13 +101,13 @@ def node2vec_kmeans(
     labels = kmeans.fit_predict(embeddings_reduced)
 
     """""
-    labels = kmeans.fit_predict(embeddings_df)
+    # labels = kmeans.fit_predict(embeddings_df)
     
 
-    """""
+    
     clustering = SpectralClustering(n_clusters=5, affinity='nearest_neighbors', random_state=42)
     labels = clustering.fit_predict(embeddings_df)
-    """""
+    
 
     # Create a list of communities based on KMeans labels
     communities = [[] for _ in range(n_clusters)]
@@ -166,9 +166,45 @@ def create_graph_with_independent_sets():
     return G
 
 
+def create_graph_with_interconnected_cliques(n=40, k=10, extra_edges=5):
+    """
+    Crée un graphe composé de k cliques indépendantes, 
+    puis ajoute un certain nombre d'arêtes aléatoires entre ces cliques.
+    
+    :param n: Nombre total de nœuds.
+    :param k: Nombre de cliques.
+    :param extra_edges: Nombre d'arêtes inter-cliques à ajouter.
+    :return: Graphe NetworkX.
+    """
+    nodes_per_group = n // k  # Nombre de nœuds par clique
+    G = nx.Graph()
+    
+    # Création des groupes de cliques
+    groups = {i: list(range(i * nodes_per_group, (i + 1) * nodes_per_group)) for i in range(k)}
+    
+    # Ajout des arêtes à l'intérieur des cliques
+    for group in groups.values():
+        G.add_nodes_from(group)
+        for i in range(len(group)):
+            for j in range(i + 1, len(group)):
+                G.add_edge(group[i], group[j])
+    
+    # Ajout d'arêtes inter-cliques aléatoires
+    all_nodes = list(G.nodes())
+    for _ in range(extra_edges):
+        u, v = random.sample(all_nodes, 2)
+        if not G.has_edge(u, v):  # Éviter les doublons
+            G.add_edge(u, v)
+    
+    return G
+
+
+
+
+
 if __name__ == "__main__":
     # Generate a graph with independent sets
-    g = create_graph_with_independent_sets()
+    g = create_graph_with_interconnected_cliques(n=80, k=8, extra_edges=16)
 
     
 
@@ -176,7 +212,7 @@ if __name__ == "__main__":
     markov_clusters = algorithms.markov_clustering(g)
 
     # Apply Node2Vec + KMeans clustering
-    node2vec_clusters = node2vec_kmeans(g)
+    node2vec_clusters = node2vec_kmeans(g, dimensions=16)
 
     # Apply Louvain Clustering
     louvain_clusters = algorithms.louvain(g)
